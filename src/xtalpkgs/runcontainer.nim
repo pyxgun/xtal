@@ -4,7 +4,7 @@ import
     oids, os, json, strformat, strutils
 
 import
-    types, libc, linuxutil, image, error
+    types, libc, linuxutil, image, nwmanage, error
 
 # execContainer will be executed on new process
 proc procOnContainer(container: ContainerConf) =
@@ -15,8 +15,6 @@ proc procOnContainer(container: ContainerConf) =
     mountFs(container.dirs)
     # pivot_root
     pivotRoot(container.dirs)
-    # setup veth
-    setupContainerVeth(container.ipaddr)
     # execute command in container
     if execv(container.env.command[0], container.env.command) != 0:
         execError("execute command failed.")
@@ -37,7 +35,7 @@ proc writeFile(path, content: string) =
         fd.writeLine(content)
         fd.close
 
-proc initConfig(containerDir, containerId, image, tag: string) =
+proc initConfig(containerDir, containerId, containerIp, image, tag: string, cmd: seq[string]) =
     let config = %* {
         "ContainerId": containerId,
         "Repository": image,
@@ -45,9 +43,8 @@ proc initConfig(containerDir, containerId, image, tag: string) =
         "Status": "created",
         "Pid": 0,
         "Hostname": containerId,
-        "Cmd": [
-            "/bin/bash"
-        ]
+        "Ip": containerIp,
+        "Cmd": cmd
     }
     writeFile(containerDir & "/config.json", $config)
 
@@ -60,6 +57,7 @@ proc stateUpdate(configPath: string, status: string) =
         "Status": status,
         "Pid": conf["Pid"].getInt,
         "Hostname": conf["Hostname"].getStr,
+        "Ip": conf["Ip"].getStr,
         "Cmd": conf["Cmd"]
     }
     writeFile(configPath, $config)
@@ -67,15 +65,16 @@ proc stateUpdate(configPath: string, status: string) =
 # execute container
 proc execContainer(container: var ContainerConf) =
     let
-        config = parseFile(container.dirs.basedir & "/xtalconf.json")
+        config   = parseFile(container.dirs.basedir & "/xtalconf.json")
+        nwconf   = parseFile(container.dirs.iddir & "/config.json")
         hostaddr = config["network"]["ip_hostaddr"].getStr
-    container.ipaddr = config["network"]["ip_vethaddr"].getStr
+        vethaddr = nwconf["Ip"].getStr
     # create child process
     let pid = container.newProcess
     if pid == -1:
         execError("start new process failed.")
     pid.writeUidGidMappings(container.sysProcAttr)
-    pid.setupHostVeth(hostaddr)
+    pid.setupContainerNW(hostaddr, vethaddr, container.env.hostname)
     pid.setMemLimit
     pid.setCpuLimit
     # wait child process
@@ -109,17 +108,23 @@ proc listContainer*(container: ContainerConf) =
                 echo fmt"""{conf["ContainerId"].getStr:<15}{image:<25}{conf["Status"].getStr}"""
 
 # TODO: oci runtime specification, create operation
-proc createContainer*(container: ContainerConf, reporeq: string): string =
+proc createContainer*(container: var ContainerConf, reporeq: string): string =
     let
-        containerId = ($genOid())[0..11]
+        containerId  = ($genOid())[0..11]
         containerDir = container.dirs.containerdir & "/" & containerId
-    var image, tag: string
+    var 
+        image, tag: string
+        cmd: seq[string]
     reporeq.parseRepo(image, tag)
+
+    container.setContainerNwIf(containerId)
+    let containerIp  = container.env.ipaddr
 
     createDir(containerDir)
     if not imageExists(container, image, tag):
         container.getContainerImage(reporeq)
-    initConfig(containerDir, containerId, image, tag)
+    cmd = container.getConfigCmd(image, tag)
+    initConfig(containerDir, containerId, containerIp, image, tag, cmd)
     result = containerId
 
 # TODO: oci runtime specification, start operation
@@ -149,10 +154,10 @@ proc startContainer*(container: var ContainerConf, containerId: string) =
         cmdarray.add(str.getStr)
     container.env.command   = allocCStringArray(cmdarray)
 
+    # update status to running
     stateUpdate(containerDir & "/config.json", "running")
     # execute container
     container.execContainer
-
     # update status to stop
     stateUpdate(containerDir & "/config.json", "stop")
 
@@ -168,6 +173,7 @@ proc deleteContainer*(container: ContainerConf, containerId: string) =
         quit(1)
     else:
         removeDir(containerDir)
+        freeLeaseIp(container, containerId)
 
 # wrapper
 proc run*(container: var ContainerConf, reporeq: string) =

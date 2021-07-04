@@ -82,16 +82,16 @@ proc claenCgroups*(pid: int) =
         execError("remove cpu failed.")
 
 # setup veth
-proc setupHostVeth*(pid: int, hostaddr: string) =
-    execCommand(fmt"ip link add name xtaleth type veth peer name eth0 netns {pid}")
-#    execCommand(fmt"ip address add {hostaddr} dev xtaleth")
-    execCommand("ip link set dev xtaleth master xtalbr0")
-    execCommand("ip link set up xtaleth")
-
-proc setupContainerVeth*(vethaddr: string) =
-    execCommand(fmt"ip address add {vethaddr} dev eth0")
-    execCommand("ip link set up eth0")
-    execCommand("ip route add default via 10.0.0.1")
+proc setupContainerNW*(pid: int, hostaddr, vethaddr: string, containerId: string) =
+    let 
+        hostIpOnly = split(hostaddr, "/")[0]
+        ethId      = containerId[6 .. ^1]
+    execCommand(fmt"ip link add name xtal{ethId} type veth peer name eth0 netns {pid}")
+    execCommand(fmt"nsenter -t {pid} -n ip address add {vethaddr} dev eth0")
+    execCommand(fmt"ip link set dev xtal{ethId} master xtalbr")
+    execCommand(fmt"nsenter -t {pid} -n ip link set up eth0")
+    execCommand(fmt"ip link set up xtal{ethId}")
+    execCommand(fmt"nsenter -t {pid} -n ip route add default via {hostIpOnly}")
 
 proc mountFs*(dirs: ContainerDirs) =
     block:

@@ -20,17 +20,18 @@ type
         layerdir*       : string
         imagedir*       : string
         iddir*          : string
+        blobsdir*       : string
         upperdir*       : string
         lowerdir*       : string
         workdir*        : string
         overlay*        : string
-    
+        
     ContainerEnv* = object
         hostname*   : string
         command*    : cstringArray
-        
+        ipaddr*     : string
+            
     ContainerConf* = object
         dirs*       : ContainerDirs
         sysProcAttr*: SysProcAttr
         env*        : ContainerEnv
-        ipaddr*     : string

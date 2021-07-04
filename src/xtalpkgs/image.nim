@@ -53,6 +53,18 @@ proc getManifest(token, image, tag: string): JsonNode =
     else:
         result = res.body.parseJson
 
+proc getConfig(container: ContainerConf, token, image: string, manifest: JsonNode) {.async.} =
+    let 
+        client   = newAsyncHttpClient()
+        imageId  = manifest["config"]["digest"].getStr
+        fname    = imageId[7 .. ^1]
+        blobpath = fmt"{container.dirs.blobsdir}/{fname}"
+        url      = fmt"https://registry-1.docker.io/v2/library/{image}/blobs/{imageId}"
+    client.headers = newHttpHeaders({ "Authorization": fmt"Bearer {token}" })
+
+    if not fileExists(blobpath):
+        await client.downloadFile(url, blobpath)
+
 proc getLayers(container: ContainerConf, token, image: string, manifest: JsonNode) {.async.} =
     let client = newAsyncHttpClient()
     client.headers = newHttpHeaders({ "mediaType": "application/vnd.docker.image.rootfs.diff.tar.gzip",
@@ -115,6 +127,11 @@ proc checkWorkingContainer(container: ContainerConf, image, tag: string) =
                     echo fmt"""Remove image "{image}:{tag}" failed: container {conf["ContainerId"].getStr} is using this image."""
                     quit(1)
 
+proc removeBlobs(container: ContainerConf, digest: string) =
+    for blob in walkDir(container.dirs.blobsdir):
+        if blob.path == fmt"{container.dirs.blobsdir}/{digest}":
+            removeFile(fmt"{container.dirs.blobsdir}/{digest}")
+
 proc removeImage*(container: ContainerConf, imageId: string) =
     let imageList = parseFile(container.dirs.imagedir & "/images.json")
     var newImages: seq[JsonNode]
@@ -125,9 +142,9 @@ proc removeImage*(container: ContainerConf, imageId: string) =
                 image = item["repository"].getStr
                 tag   = item["tag"].getStr
             checkWorkingContainer(container, image, tag)
-
             for layer in item["layers"].items:
                 removeDir(fmt"""{container.dirs.layerdir}/{layer.getStr}""")
+            removeBlobs(container, item["digest"].getStr)
             continue
         else:
             newImages.add(item)
@@ -138,6 +155,18 @@ proc removeImage*(container: ContainerConf, imageId: string) =
     let fd: File = open(container.dirs.imagedir & "/images.json", FileMode.fmWrite)
     fd.write(newImageList)
     fd.close
+
+proc getConfigCmd*(container: ContainerConf, image, tag: string): seq[string] =
+    result = @[]
+    var digest: string
+    let imageList = parseFile(fmt"{container.dirs.imagedir}/images.json")
+    for item in imageList["images"].items:
+        if item["repository"].getStr == image and item["tag"].getStr == tag:
+            digest = item["digest"].getStr
+            break
+    let blob = parseFile(fmt"{container.dirs.blobsdir}/{digest}")
+    for cmd in blob["config"]["Cmd"].items:
+        result.add(cmd.getStr)
 
 proc getContainerImage*(container: ContainerConf, reporeq: string) =
     var image, tag: string
@@ -150,6 +179,7 @@ proc getContainerImage*(container: ContainerConf, reporeq: string) =
         let
             token = reqToken(image)
             manifest = getManifest(token, image, tag)
+        waitFor container.getConfig(token, image,manifest)
         waitFor container.getLayers(token, image, manifest)
         extractLayer(container, manifest)
         addImageList(container, image, tag, manifest)
