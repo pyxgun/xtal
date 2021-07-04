@@ -4,7 +4,8 @@ Xtal /krístəl/ is a small container runtime written in Nim.
 
 ## Quick start
 Xtal is server-less container runtime.  
-All you need to do to create your container is to execute `xtal run` command.
+All you need to do to create your container is to execute `xtal run` command.  
+
 ![xtal demo](https://raw.githubusercontent.com/wiki/pyxgun/xtal/xtal_introduce.gif)
 
 ## Features
