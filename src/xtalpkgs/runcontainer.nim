@@ -153,6 +153,7 @@ proc startContainer*(container: var ContainerConf, containerId: string) =
     for str in config["Cmd"]:
         cmdarray.add(str.getStr)
     container.env.command   = allocCStringArray(cmdarray)
+    cmdSyntaxCheck(container.env.command)
 
     # update status to running
     stateUpdate(containerDir & "/config.json", "running")

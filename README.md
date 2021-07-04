@@ -11,6 +11,7 @@ All you need to do to create your container is to execute `xtal run` command.
 ## Features
 - pivot root
 - namespaces(IPC, Network, Mount, PID, User, UTS)
+- bridge network
 - memory & cpu limits
 - pull image from Docker Hub
 - management container & docker images
@@ -50,7 +51,7 @@ $ sudo xtal create archlinux:latest
 # check containerID
 $ sudo xtal ls
   CONTAINER ID   IMAGE                    STATUS
-  60e16be57bb5   archlinux:latest         stop
+  60e16be57bb5   archlinux:latest         created
 
 # start the container
 # specify container ID you want to run

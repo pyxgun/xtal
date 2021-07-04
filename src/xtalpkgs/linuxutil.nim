@@ -152,3 +152,8 @@ proc pivotRoot*(dirs: ContainerDirs) =
         execError("unmount put_old failed.")
     if rmdir("/put_old") != 0:
         execError("remove put_old failed.")
+
+proc cmdSyntaxCheck*(cmdArray: var cstringArray) =
+    let cmd: string = $cmdArray[0]
+    if cmd.find("/usr/bin/") == -1 and cmd.find("/bin/") == -1:
+        cmdArray[0] = fmt"/bin/{cmdArray[0]}"

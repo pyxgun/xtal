@@ -1,15 +1,13 @@
 # xtal container runtime
 
 import
-    xtalpkgs/[initxtal, runcontainer, image], os
+    xtalpkgs/[initxtal, runcontainer, image, help], os
 
 let xtalSettings = initXtal()
 var container    = xtalSettings.initContainerConf
 
-# TODO: help page
-
 if paramCount() == 0:
-    stderr.writeLine("Too few arguments")
+    help()
     quit(1)
 else:
     case commandLineParams()[0]:
@@ -31,3 +29,4 @@ else:
         container.removeImage(commandLineParams()[1])
     else:
         echo "command not found."
+        help()

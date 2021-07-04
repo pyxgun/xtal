@@ -58,6 +58,7 @@ proc checkDir(setting: XtalSettings) =
             let fd: File = open(ipLease, FileMode.fmWrite)
             fd.write("""{"ip_lease":[]}""")
             fd.close
+    # TODO: get host network interface name
     # xtal config file
     let configFile = setting.baseDir & "/xtalconf.json"
     if not fileExists(configFile):
