@@ -111,7 +111,6 @@ proc checkInitComplete(): bool =
             fd.writeLine("0")
             fd.close
     var flag: int
-    # read nat flag
     block:
         let
             fd: File = open(initcheck, FileMode.fmRead)

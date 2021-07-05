@@ -62,6 +62,12 @@ proc stateUpdate(configPath: string, status: string) =
     }
     writeFile(configPath, $config)
 
+proc containerExists(containerDir: string): bool =
+    if dirExists(containerDir):
+        return true
+    else:
+        return false
+
 # execute container
 proc execContainer(container: var ContainerConf) =
     let
@@ -129,9 +135,12 @@ proc createContainer*(container: var ContainerConf, reporeq: string): string =
 
 # TODO: oci runtime specification, start operation
 proc startContainer*(container: var ContainerConf, containerId: string) =
-    # create overlay directory
+    let containerDir = container.dirs.containerdir & "/" & containerId
+    if not containerExists(containerDir):
+        echo fmt"container {containerId} does not exist."
+        quit(1)
+
     let
-        containerDir = container.dirs.containerdir & "/" & containerId
         config  = parseFile(containerDir & "/config.json")
         image   = config["Repository"].getStr
         tag     = config["Tag"].getStr

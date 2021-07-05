@@ -16,6 +16,17 @@ All you need to do to create your container is to execute `xtal run` command.
 - pull image from Docker Hub
 - management container & docker images
 
+## Image that has been confirmed to work
+[x] Alpine
+[x] Ubuntu    *currently apt does not work. will fix this problem.
+[x] CentOS
+[x] Arch Linux
+[x] Debian
+[x] Amazon Linux
+[x] Oracle Linux
+
+...and more Linux image!
+
 ## Installation
 ```sh
 $ git clone https://github.com/pyxgun/xtal.git
