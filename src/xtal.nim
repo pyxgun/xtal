@@ -27,6 +27,8 @@ else:
         container.listImages
     of "rmi":
         container.removeImage(commandLineParams()[1])
+    of "state":
+        container.stateContainer(commandLineParams()[1])
     else:
         echo "command not found."
         help()
