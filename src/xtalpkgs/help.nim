@@ -6,6 +6,10 @@ let footer = """
 For more information and bug reporting:
 <https://github.com/pyxgun/xtal>"""
 
+proc callHelp*(helpPage: proc ()) =
+    helpPage()
+    quit(1)
+
 proc help*() =
     echo fmt"""
 Usage: xtal [command] ...
@@ -78,5 +82,45 @@ Description:
 
 Example:
     $ xtal start 60e2f6d07212
+
+{footer}"""
+
+proc pullHelp*() =
+    echo fmt"""
+Usage: xtal pull [repository<:tag>]
+
+Description:
+    `pull` command downloads specified image.
+    <:tag> can be omitted. If you omit <:tag>, the latest version will be downloaded.
+    If the image already exists in local, it'll be not be downloaded.
+
+{footer}"""
+
+proc rmHelp*() =
+    echo fmt"""
+Usage: xtal rm [containerID]
+
+Description:
+    `rm` command removes specified container.
+    A container can be removed only when its status is [stop] or [created].
+    If a container is running, it cannot be removed.
+
+Example:
+    $ xtal rm 60e2f6d07212
+
+{footer}"""
+
+
+proc rmiHelp*() =
+    echo fmt"""
+Usage: xtal rmi [imageID]
+
+Description:
+    `rmi` command removes specified image.
+    A image can be removed only when it is not used by any container.
+    If it is used in more than one container, it cannot be removed.
+
+Example:
+    $ xtal rmi 32ef0078fbeb
 
 {footer}"""
