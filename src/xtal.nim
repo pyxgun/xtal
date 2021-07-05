@@ -12,10 +12,19 @@ if paramCount() == 0:
 else:
     case commandLineParams()[0]:
     of "run":
+        if paramCount() == 1:
+            runHelp()
+            quit(1)
         container.run(commandLineParams()[1])
     of "create":
+        if paramCount() == 1:
+            createHelp()
+            quit(1)
         discard container.createContainer(commandLineParams()[1])
     of "start":
+        if paramCount() == 1:
+            startHelp()
+            quit(1)
         container.startContainer(commandLineParams()[1])
     of "rm":
         container.deleteContainer(commandLineParams()[1])
