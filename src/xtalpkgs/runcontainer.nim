@@ -48,14 +48,14 @@ proc initConfig(containerDir, containerId, containerIp, image, tag: string, cmd:
     }
     writeFile(containerDir & "/config.json", $config)
 
-proc stateUpdate(configPath: string, status: string) =
+proc stateUpdate(configPath: string, pid: int, status: string) =
     let conf = parseFile(configPath)
     let config = %* {
         "ContainerId": conf["ContainerId"].getStr,
         "Repository": conf["Repository"].getStr,
         "Tag": conf["Tag"].getStr,
         "Status": status,
-        "Pid": conf["Pid"].getInt,
+        "Pid": pid,
         "Hostname": conf["Hostname"].getStr,
         "Ip": conf["Ip"].getStr,
         "Cmd": conf["Cmd"]
@@ -83,6 +83,8 @@ proc execContainer(container: var ContainerConf) =
     pid.setupContainerNW(hostaddr, vethaddr, container.env.hostname)
     pid.setMemLimit
     pid.setCpuLimit
+    # update status to running
+    stateUpdate(fmt"{container.dirs.iddir}/config.json", pid, "running")
     # wait child process
     pid.waitProc
     # remove cgroups
@@ -100,8 +102,11 @@ proc setLowerDir(container: var ContainerConf, image, tag: string) =
     container.dirs.lowerdir = layerDir
 
 # TODO: oci runtime specification, state operation
-proc stateContainer*() =
-    discard
+proc stateContainer*(container: ContainerConf, containerId: string) =
+    let 
+        containerDir = fmt"{container.dirs.containerdir}/{containerId}"
+        config       = parseFile(fmt"{containerDir}/config.json")
+    echo config.pretty
 
 proc listContainer*(container: ContainerConf) =
     echo fmt"""{"CONTAINER ID":<15}{"IMAGE":<25}STATUS"""
@@ -164,26 +169,34 @@ proc startContainer*(container: var ContainerConf, containerId: string) =
     container.env.command   = allocCStringArray(cmdarray)
     cmdSyntaxCheck(container.env.command)
 
-    # update status to running
-    stateUpdate(containerDir & "/config.json", "running")
     # execute container
     container.execContainer
     # update status to stop
-    stateUpdate(containerDir & "/config.json", "stop")
+    stateUpdate(containerDir & "/config.json", 0, "stop")
 
 # TODO: oci runtime specification, kill operation
 proc killContainer*() =
     discard
 
+# TODO: check container state
+proc checkContainerState(containerDir: string): string =
+    let config = parseFile(containerDir & "/config.json")
+    result = config["Status"].getStr
+
 # TODO: oci runtime specification, delete operation
 proc deleteContainer*(container: ContainerConf, containerId: string) =
     let containerDir = container.dirs.containerdir & "/" & containerId
     if not dirExists(containerDir):
-        stderr.writeLine(fmt"""[ERROR] container "{containerId}" does not exist""")
+        echo fmt"""container "{containerId}" does not exist"""
         quit(1)
     else:
-        removeDir(containerDir)
-        freeLeaseIp(container, containerId)
+        let state = checkContainerState(containerDir)
+        if state == "running":
+            echo fmt"""Cannot remove container "{containerId}". State: {state}"""
+            quit(1)
+        else:
+            removeDir(containerDir)
+            freeLeaseIp(container, containerId)
 
 # wrapper
 proc run*(container: var ContainerConf, reporeq: string) =
