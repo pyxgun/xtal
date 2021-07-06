@@ -18,7 +18,7 @@ All you need to do to create your container is to execute `xtal run` command.
 
 ## Image that has been confirmed to work
 - [x] Alpine
-- [x] Ubuntu    *currently apt does not work. will fix this problem.
+- [x] Ubuntu
 - [x] CentOS
 - [x] Arch Linux
 - [x] Debian
