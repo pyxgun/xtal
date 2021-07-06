@@ -39,7 +39,7 @@ proc writeUidGidMappings*(pid: int, sysProcAttr: SysProcAttr) =
     uidf.writeIDMapping(sysProcAttr.uidMappings)
 
     # set gid mapping
-    pid.writeSetgrups
+    #pid.writeSetgrups
     let gidf = fmt"/proc/{pid}/gid_map"
     gidf.writeIDMapping(sysProcAttr.gidMappings)
 
