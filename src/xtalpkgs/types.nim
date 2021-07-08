@@ -25,6 +25,7 @@ type
         lowerdir*       : string
         workdir*        : string
         overlay*        : string
+        exmount*        : string
         
     ContainerEnv* = object
         hostname*   : string

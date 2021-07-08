@@ -25,6 +25,7 @@ proc writeIDMapping(path: string, map: SysProcIDMap) =
         fd.writeLine(fmt"{map.containerID} {map.hostID} {map.size}")
         fd.close
 
+#[
 proc writeSetgrups(pid: int) =
     block:
         let
@@ -32,6 +33,7 @@ proc writeSetgrups(pid: int) =
             fd: File = open(sgf, FileMode.fmWrite)
         fd.writeLine("deny")
         fd.close
+]#
 
 proc writeUidGidMappings*(pid: int, sysProcAttr: SysProcAttr) =
     # set uid mapping
@@ -93,6 +95,26 @@ proc setupContainerNW*(pid: int, hostaddr, vethaddr: string, containerId: string
     execCommand(fmt"ip link set up xtal{ethId}")
     execCommand(fmt"nsenter -t {pid} -n ip route add default via {hostIpOnly}")
 
+proc parseExMount(mntopt: string): (cint, string, string) =
+    let
+        mntinfo  = mntopt.split(",")
+        typeinfo = mntinfo[0].split(":")
+        srcinfo  = mntinfo[1].split(":")
+        dstinfo  = mntinfo[2].split(":")
+    if typeinfo[0] == "type" and srcinfo[0] == "src" and dstinfo[0] == "dst":
+        var 
+            mnttype: cint
+            mntsrc  = srcinfo[1]
+            mntdst  = dstinfo[1]
+        case typeinfo[1]
+        of "bind":
+            mnttype = MS_BIND
+        else:
+            mnttype = 0            
+        result = (mnttype, mntsrc, mntdst)
+    else:
+        execError("Invalid mount options")
+
 proc mountFs*(dirs: ContainerDirs) =
     block:
         # overlay
@@ -135,6 +157,15 @@ proc mountFs*(dirs: ContainerDirs) =
             let fd: File = open(fmt"{dirs.overlay}/etc/resolv.conf", FileMode.fmWrite)
             fd.close
         writeFile(fmt"{dirs.overlay}/etc/resolv.conf", "nameserver 8.8.8.8")
+        # mount host directory
+        if dirs.exmount != "":
+            let
+                mntinfo = parseExMount(dirs.exmount)
+                mnttype = mntinfo[0]
+                mntsrc  = mntinfo[1]
+                mntdst  = mntinfo[2]
+            if mount(mntsrc, fmt"{dirs.overlay}{mntdst}", "", mnttype, "") != 0:
+                execError("mount option failed.")
 
 # wrapper for pivot_root
 proc pivotRoot*(dirs: ContainerDirs) =
