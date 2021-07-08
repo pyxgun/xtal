@@ -33,7 +33,7 @@ else:
     of "rmi":
         if paramCount() == 1: callHelp(rmiHelp)
         container.removeImage(commandLineParams()[1])
-    of "state":
+    of "status":
         container.stateContainer(commandLineParams()[1])
     else:
         echo "command not found."

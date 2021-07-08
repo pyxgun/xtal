@@ -1,7 +1,7 @@
 # run container
 
 import
-    oids, os, json, strformat, strutils
+    oids, md5, os, json, strformat, strutils
 
 import
     types, libc, linuxutil, image, nwmanage, error
@@ -126,7 +126,7 @@ proc listContainer*(container: ContainerConf) =
 # TODO: oci runtime specification, create operation
 proc createContainer*(container: var ContainerConf, reporeq: string): string =
     let
-        containerId  = ($genOid())[0..11]
+        containerId  = ($toMD5($genOid()))[0..11]
         containerDir = container.dirs.containerdir & "/" & containerId
     var 
         image, tag: string

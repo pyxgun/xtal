@@ -38,6 +38,9 @@ Commands:
 
     images
         : show local images.
+    
+    status [containerID]
+        : show container status
 
 {footer}"""
 

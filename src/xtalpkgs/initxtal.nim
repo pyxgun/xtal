@@ -141,12 +141,12 @@ proc initXtal*(): XtalSettings =
 
 proc initContainerConf*(xtalSettings: XtalSettings): ContainerConf =
     result.sysProcAttr = SysProcAttr(
-        cloneflags: CLONE_NEWUSER |
+        cloneflags: CLONE_NEWNS   |
                     CLONE_NEWUTS  |
                     CLONE_NEWIPC  |
                     CLONE_NEWPID  |
                     CLONE_NEWNET  |
-                    CLONE_NEWNS,
+                    CLONE_NEWUSER,
         uidMappings:
             SysProcIDMap(
                     containerID : 0,
