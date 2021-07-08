@@ -71,14 +71,14 @@ $ sudo xtal [command] <[arg]>
 
 ## Options
 ### create
-```sh
+```
   -n, --name=[name]
           assign a name to the container.
           $ sudo xtal --name=mycontainer 60e16be57bb5
 ```
 
 ### start
-```sh
+```
   --mount=type:[type],src:[src],dst:[dst]
           bind mount a directory on the local host to container.
           $ sudo xtal start --mount=type:bind,src:$(pwd)/mydir,dst:/home 60e16be57bb5
