@@ -62,6 +62,11 @@ proc stateUpdate(configPath: string, pid: int, status: string) =
     }
     writeFile(configPath, $config)
 
+proc cmdSyntaxCheck*(cmdArray: var cstringArray) =
+    let cmd: string = $cmdArray[0]
+    if cmd.find("/usr/bin/") == -1 and cmd.find("/usr/sbin/") == -1 and cmd.find("/bin/") == -1:
+        cmdArray[0] = fmt"/bin/{cmdArray[0]}"
+
 proc containerExists(containerDir: string): bool =
     if dirExists(containerDir):
         return true
