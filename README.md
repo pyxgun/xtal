@@ -34,21 +34,6 @@ $ cd xtal
 $ nimble build
 ```
 
-## Commands
-```sh
-$ sudo xtal [command] <[arg]>
-
-# command
-  run    : quick start. pull image, create container, and start container.
-  create : create container with specified image.
-  start  : start container that has already been created.
-  ls     : show created container list.
-  rm     : remove container.
-  pull   : pull image from docker hub.
-  images : show downloaded images.
-  rmi    : remove image.
-```
-
 ## Tutorial
 Let's try to run a container with a few command.
 In this example, we will run Arch Linux container.
@@ -67,6 +52,36 @@ $ sudo xtal ls
 # start the container
 # specify container ID you want to run
 $ sudo xtal start 60e16be57bb5
+```
+
+## Commands
+```sh
+$ sudo xtal [command] <[arg]>
+
+# command
+  run    : quick start. pull image, create container, and start container.
+  create : create container with specified image.
+  start  : start container that has already been created.
+  ls     : show created container list.
+  rm     : remove container.
+  pull   : pull image from docker hub.
+  images : show downloaded images.
+  rmi    : remove image.
+```
+
+## Options
+### create
+```sh
+  -n, --name=[name]
+          assign a name to the container.
+          $ sudo xtal --name=mycontainer 60e16be57bb5
+```
+
+### start
+```sh
+  --mount=type:[type],src:[src],dst:[dst]
+          bind mount a directory on the local host to container.
+          $ sudo xtal start --mount=type:bind,src:$(pwd)/mydir,dst:/home 60e16be57bb5
 ```
 
 ## Note
