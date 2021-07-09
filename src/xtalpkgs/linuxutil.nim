@@ -95,23 +95,16 @@ proc setupContainerNW*(pid: int, hostaddr, vethaddr: string, containerId: string
     execCommand(fmt"ip link set up xtal{ethId}")
     execCommand(fmt"nsenter -t {pid} -n ip route add default via {hostIpOnly}")
 
-proc parseExMount(mntopt: string): (cint, string, string) =
+proc parseExMount(mntopt: string): (string, string) =
     let
         mntinfo  = mntopt.split(",")
-        typeinfo = mntinfo[0].split(":")
-        srcinfo  = mntinfo[1].split(":")
-        dstinfo  = mntinfo[2].split(":")
-    if typeinfo[0] == "type" and srcinfo[0] == "src" and dstinfo[0] == "dst":
-        var 
-            mnttype: cint
+        srcinfo  = mntinfo[0].split(":")
+        dstinfo  = mntinfo[1].split(":")
+    if srcinfo[0] == "src" and dstinfo[0] == "dst":
+        var
             mntsrc  = srcinfo[1]
             mntdst  = dstinfo[1]
-        case typeinfo[1]
-        of "bind":
-            mnttype = MS_BIND
-        else:
-            mnttype = 0            
-        result = (mnttype, mntsrc, mntdst)
+        result = (mntsrc, mntdst)
     else:
         execError("Invalid mount options")
 
@@ -161,10 +154,9 @@ proc mountFs*(dirs: ContainerDirs) =
         if dirs.exmount != "":
             let
                 mntinfo = parseExMount(dirs.exmount)
-                mnttype = mntinfo[0]
-                mntsrc  = mntinfo[1]
-                mntdst  = mntinfo[2]
-            if mount(mntsrc, fmt"{dirs.overlay}{mntdst}", "", mnttype, "") != 0:
+                mntsrc  = mntinfo[0]
+                mntdst  = mntinfo[1]
+            if mount(fmt"{mntsrc}", fmt"{dirs.overlay}{mntdst}", "", MS_BIND, "") != 0:
                 execError("mount option failed.")
 
 # wrapper for pivot_root

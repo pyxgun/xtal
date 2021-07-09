@@ -63,6 +63,8 @@ proc checkCommandOpt(subcmd: int, key, value: string): bool =
         of "mount":
             if value != ""  : return true
             else            : return false
+        of "r", "rm":
+            return true
         else: return false
     of CREATE:
         case key
@@ -111,7 +113,7 @@ proc execXtal*(container: var ContainerConf, cmd: seq[string], opt: seq[tuple[ke
         quit(1)
     case checkSunbcommand(cmd[0])
     of RUN:
-        discard
+        container.run(cmd[1], opt)
     of CREATE:
         if opt.len == 1:
             discard container.createContainer(cmd[1], opt[0][1])

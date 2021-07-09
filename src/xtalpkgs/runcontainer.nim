@@ -58,7 +58,7 @@ proc stateUpdate(configPath: string, pid: int, status: string) =
         "Status": status,
         "Pid": pid,
         "Hostname": conf["Hostname"].getStr,
-        "Containername": "",
+        "Containername": conf["Containername"].getStr,
         "Ip": conf["Ip"].getStr,
         "Cmd": conf["Cmd"]
     }
@@ -207,6 +207,20 @@ proc deleteContainer*(container: ContainerConf, containerId: string) =
             freeLeaseIp(container, containerId)
 
 # wrapper
-proc run*(container: var ContainerConf, reporeq: string) =
-    let containerId = container.createContainer(reporeq)
-    container.startContainer(containerId)
+proc run*(container: var ContainerConf, reporeq: string,
+            opts: seq[tuple[key: string, value: string]] = @[]) =
+    var 
+        name, mnt: string = ""
+        rmflag: bool = false
+    if opts.len >= 1:
+        for opt in opts:
+            if opt[0] == "n" or opt[0] == "name":
+                name = opt[1]
+            elif opt[0] == "mount":
+                mnt = opt[1]
+            elif opt[0] == "r" or opt[0] == "rm":
+                rmflag = true
+    let containerId = container.createContainer(reporeq, name)
+    container.startContainer(containerId, mnt)
+    if rmflag:
+        container.deleteContainer(containerId)
