@@ -35,7 +35,7 @@ proc writeFile(path, content: string) =
         fd.writeLine(content)
         fd.close
 
-proc initConfig(containerDir, containerId, containerIp, image, tag: string, cmd: seq[string]) =
+proc initConfig(containerDir, containerId, containerIp, image, tag: string, cmd: seq[string], name: string) =
     let config = %* {
         "ContainerId": containerId,
         "Repository": image,
@@ -43,6 +43,7 @@ proc initConfig(containerDir, containerId, containerIp, image, tag: string, cmd:
         "Status": "created",
         "Pid": 0,
         "Hostname": containerId,
+        "Containername": name,
         "Ip": containerIp,
         "Cmd": cmd
     }
@@ -57,6 +58,7 @@ proc stateUpdate(configPath: string, pid: int, status: string) =
         "Status": status,
         "Pid": pid,
         "Hostname": conf["Hostname"].getStr,
+        "Containername": conf["Containername"].getStr,
         "Ip": conf["Ip"].getStr,
         "Cmd": conf["Cmd"]
     }
@@ -114,17 +116,17 @@ proc stateContainer*(container: ContainerConf, containerId: string) =
     echo config.pretty
 
 proc listContainer*(container: ContainerConf) =
-    echo fmt"""{"CONTAINER ID":<15}{"IMAGE":<25}STATUS"""
+    echo fmt"""{"CONTAINER ID":<15}{"IMAGE":<25}{"STATUS":<15}NAME"""
     for containerDir in walkDir(container.dirs.containerdir):
         for c in walkDir(containerDir.path):
             if c.kind == pcFile and c.path == containerDir.path & "/config.json":
                 let 
                     conf = parseFile(c.path)
                     image = conf["Repository"].getStr & ":" & conf["Tag"].getStr
-                echo fmt"""{conf["ContainerId"].getStr:<15}{image:<25}{conf["Status"].getStr}"""
+                echo fmt"""{conf["ContainerId"].getStr:<15}{image:<25}{conf["Status"].getStr:<15}{conf["Containername"].getStr}"""
 
 # TODO: oci runtime specification, create operation
-proc createContainer*(container: var ContainerConf, reporeq: string): string =
+proc createContainer*(container: var ContainerConf, reporeq: string, name: string = ""): string =
     let
         containerId  = ($toMD5($genOid()))[0..11]
         containerDir = container.dirs.containerdir & "/" & containerId
@@ -140,11 +142,11 @@ proc createContainer*(container: var ContainerConf, reporeq: string): string =
     if not imageExists(container, image, tag):
         container.getContainerImage(reporeq)
     cmd = container.getConfigCmd(image, tag)
-    initConfig(containerDir, containerId, containerIp, image, tag, cmd)
+    initConfig(containerDir, containerId, containerIp, image, tag, cmd, name)
     result = containerId
 
 # TODO: oci runtime specification, start operation
-proc startContainer*(container: var ContainerConf, containerId: string) =
+proc startContainer*(container: var ContainerConf, containerId: string, mnt: string = "") =
     let containerDir = container.dirs.containerdir & "/" & containerId
     if not containerExists(containerDir):
         echo fmt"container {containerId} does not exist."
@@ -166,6 +168,7 @@ proc startContainer*(container: var ContainerConf, containerId: string) =
     container.dirs.overlay  = overlay
     container.dirs.upperdir = upper
     container.dirs.workdir  = work
+    container.dirs.exmount = mnt
 
     container.env.hostname  = config["Hostname"].getStr
     var cmdarray: seq[string]
@@ -204,6 +207,20 @@ proc deleteContainer*(container: ContainerConf, containerId: string) =
             freeLeaseIp(container, containerId)
 
 # wrapper
-proc run*(container: var ContainerConf, reporeq: string) =
-    let containerId = container.createContainer(reporeq)
-    container.startContainer(containerId)
+proc run*(container: var ContainerConf, reporeq: string,
+            opts: seq[tuple[key: string, value: string]] = @[]) =
+    var 
+        name, mnt: string = ""
+        rmflag: bool = false
+    if opts.len >= 1:
+        for opt in opts:
+            if opt[0] == "n" or opt[0] == "name":
+                name = opt[1]
+            elif opt[0] == "mount":
+                mnt = opt[1]
+            elif opt[0] == "r" or opt[0] == "rm":
+                rmflag = true
+    let containerId = container.createContainer(reporeq, name)
+    container.startContainer(containerId, mnt)
+    if rmflag:
+        container.deleteContainer(containerId)

@@ -25,6 +25,7 @@ proc writeIDMapping(path: string, map: SysProcIDMap) =
         fd.writeLine(fmt"{map.containerID} {map.hostID} {map.size}")
         fd.close
 
+#[
 proc writeSetgrups(pid: int) =
     block:
         let
@@ -32,6 +33,7 @@ proc writeSetgrups(pid: int) =
             fd: File = open(sgf, FileMode.fmWrite)
         fd.writeLine("deny")
         fd.close
+]#
 
 proc writeUidGidMappings*(pid: int, sysProcAttr: SysProcAttr) =
     # set uid mapping
@@ -93,6 +95,19 @@ proc setupContainerNW*(pid: int, hostaddr, vethaddr: string, containerId: string
     execCommand(fmt"ip link set up xtal{ethId}")
     execCommand(fmt"nsenter -t {pid} -n ip route add default via {hostIpOnly}")
 
+proc parseExMount(mntopt: string): (string, string) =
+    let
+        mntinfo  = mntopt.split(",")
+        srcinfo  = mntinfo[0].split(":")
+        dstinfo  = mntinfo[1].split(":")
+    if srcinfo[0] == "src" and dstinfo[0] == "dst":
+        var
+            mntsrc  = srcinfo[1]
+            mntdst  = dstinfo[1]
+        result = (mntsrc, mntdst)
+    else:
+        execError("Invalid mount options")
+
 proc mountFs*(dirs: ContainerDirs) =
     block:
         # overlay
@@ -135,6 +150,14 @@ proc mountFs*(dirs: ContainerDirs) =
             let fd: File = open(fmt"{dirs.overlay}/etc/resolv.conf", FileMode.fmWrite)
             fd.close
         writeFile(fmt"{dirs.overlay}/etc/resolv.conf", "nameserver 8.8.8.8")
+        # mount host directory
+        if dirs.exmount != "":
+            let
+                mntinfo = parseExMount(dirs.exmount)
+                mntsrc  = mntinfo[0]
+                mntdst  = mntinfo[1]
+            if mount(fmt"{mntsrc}", fmt"{dirs.overlay}{mntdst}", "", MS_BIND, "") != 0:
+                execError("mount option failed.")
 
 # wrapper for pivot_root
 proc pivotRoot*(dirs: ContainerDirs) =
