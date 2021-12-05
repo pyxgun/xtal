@@ -96,6 +96,41 @@ proc setupContainerNW*(pid: int, hostaddr, vethaddr: string, containerId: string
     execCommand(fmt"ip link set up xtal{ethId}")
     execCommand(fmt"nsenter -t {pid} -n ip route add default via {hostIpOnly}")
 
+
+#
+proc parsePorrForwarding(portsopt: string): (string, string) =
+    let
+        port_info = portsopt.split(":")
+        host_port = port_info[0]
+        dstc_port = port_info[1]
+    result = (host_port, dstc_port)
+
+# port forwarding config
+proc setPortForwarding*(container_ip: string, ports: string) =
+    let
+        port_info = parsePorrForwarding(ports)
+        host_port = port_info[0]
+        dstc_port = port_info[1]
+    # port forwarding from host to container
+    discard execShellCmd(fmt"iptables -t nat -A PREROUTING -p tcp --dport {host_port} -j DNAT --to-destination {container_ip}:{dstc_port}")
+    discard execShellCmd(fmt"iptables -t nat -A OUTPUT -p tcp --dport {host_port} -j DNAT --to-destination {container_ip}:{dstc_port}")
+    discard execShellCmd(fmt"iptables -t nat -A POSTROUTING -p tcp -d {container_ip} --dport {dstc_port} -j MASQUERADE")
+    discard execShellCmd(fmt"iptables -A FORWARD -p tcp -d {container_ip} --dport {dstc_port} -j ACCEPT")
+    discard execShellCmd(fmt"iptables -A FORWARD -p tcp -s {container_ip} --sport {dstc_port} -j ACCEPT")
+
+# remove port forwarding config
+proc deletePortForwarding*(container_ip: string, ports: string) =
+    let
+        port_info = parsePorrForwarding(ports)
+        host_port = port_info[0]
+        dstc_port = port_info[1]
+    discard execShellCmd(fmt"iptables -t nat -D PREROUTING -p tcp --dport {host_port} -j DNAT --to-destination {container_ip}:{dstc_port}")
+    discard execShellCmd(fmt"iptables -t nat -D OUTPUT -p tcp --dport {host_port} -j DNAT --to-destination {container_ip}:{dstc_port}")
+    discard execShellCmd(fmt"iptables -t nat -D POSTROUTING -p tcp -d {container_ip} --dport {dstc_port} -j MASQUERADE")
+    discard execShellCmd(fmt"iptables -D FORWARD -p tcp -d {container_ip} --dport {dstc_port} -j ACCEPT")
+    discard execShellCmd(fmt"iptables -D FORWARD -p tcp -s {container_ip} --sport {dstc_port} -j ACCEPT")
+
+# mount options parser
 proc parseExMount(mntopt: string): (string, string) =
     let
         mntinfo  = mntopt.split(",")

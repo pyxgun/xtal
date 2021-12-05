@@ -76,7 +76,7 @@ proc containerExists(containerDir: string): bool =
         return false
 
 # execute container
-proc execContainer(container: var ContainerConf) =
+proc execContainer(container: var ContainerConf): int =
     let
         config   = parseFile(container.dirs.basedir & "/xtalconf.json")
         nwconf   = parseFile(container.dirs.iddir & "/config.json")
@@ -92,10 +92,11 @@ proc execContainer(container: var ContainerConf) =
     pid.setCpuLimit
     # update status to running
     stateUpdate(fmt"{container.dirs.iddir}/config.json", pid, "running")
+    return pid
     # wait child process
-    pid.waitProc
+    #pid.waitProc
     # remove cgroups
-    pid.claenCgroups
+    #pid.claenCgroups
 
 proc setLowerDir(container: var ContainerConf, image, tag: string) =
     let imageList = parseFile(container.dirs.imagedir & "/images.json")
@@ -115,6 +116,14 @@ proc stateContainer*(container: ContainerConf, containerId: string) =
         config       = parseFile(fmt"{containerDir}/config.json")
     echo config.pretty
 
+# get container ip
+proc getContainerIp(container: ContainerConf, containerId: string): string =
+    let
+        containerDir = fmt"{container.dirs.containerdir}/{containerId}"
+        config       = parseFile(fmt"{containerDir}/config.json")
+    result = (config["Ip"].getStr).split("/")[0]
+
+# show container list
 proc listContainer*(container: ContainerConf) =
     echo fmt"""{"CONTAINER ID":<15}{"IMAGE":<25}{"STATUS":<15}NAME"""
     for containerDir in walkDir(container.dirs.containerdir):
@@ -146,7 +155,7 @@ proc createContainer*(container: var ContainerConf, reporeq: string, name: strin
     result = containerId
 
 # TODO: oci runtime specification, start operation
-proc startContainer*(container: var ContainerConf, containerId: string, mnt: string = "") =
+proc startContainer*(container: var ContainerConf, containerId: string, mnt: string = "", ports: string = "") =
     let containerDir = container.dirs.containerdir & "/" & containerId
     if not containerExists(containerDir):
         echo fmt"container {containerId} does not exist."
@@ -168,7 +177,7 @@ proc startContainer*(container: var ContainerConf, containerId: string, mnt: str
     container.dirs.overlay  = overlay
     container.dirs.upperdir = upper
     container.dirs.workdir  = work
-    container.dirs.exmount = mnt
+    container.dirs.exmount  = mnt
 
     container.env.hostname  = config["Hostname"].getStr
     var cmdarray: seq[string]
@@ -177,10 +186,25 @@ proc startContainer*(container: var ContainerConf, containerId: string, mnt: str
     container.env.command   = allocCStringArray(cmdarray)
     cmdSyntaxCheck(container.env.command)
 
+    # config port forwarding
+    let container_ip = container.getContainerIp(containerId)
+    if ports != "":
+        setPortForwarding(container_ip, ports)
+
     # execute container
-    container.execContainer
+    let pid = container.execContainer
+    # wait child process
+    pid.waitProc
+
+    # post-processing
+    # remove cgroups
+    pid.claenCgroups
+    # remove port forwarding 
+    if ports != "":
+        deletePortForwarding(container_ip, ports)
     # update status to stop
     stateUpdate(containerDir & "/config.json", 0, "stop")
+
 
 # TODO: oci runtime specification, kill operation
 proc killContainer*() =
@@ -206,12 +230,15 @@ proc deleteContainer*(container: ContainerConf, containerId: string) =
             removeDir(containerDir)
             freeLeaseIp(container, containerId)
 
-# wrapper
+
+# wrapper: run
 proc run*(container: var ContainerConf, reporeq: string,
             opts: seq[tuple[key: string, value: string]] = @[]) =
     var 
-        name, mnt: string = ""
+        name, mnt, ports: string = ""
         rmflag: bool = false
+
+    # check options
     if opts.len >= 1:
         for opt in opts:
             if opt[0] == "n" or opt[0] == "name":
@@ -220,7 +247,28 @@ proc run*(container: var ContainerConf, reporeq: string,
                 mnt = opt[1]
             elif opt[0] == "r" or opt[0] == "rm":
                 rmflag = true
+            elif opt[0] == "p" or opt[0] == "portforward":
+                ports = opt[1]
+
     let containerId = container.createContainer(reporeq, name)
-    container.startContainer(containerId, mnt)
+    container.startContainer(containerId, mnt, ports)
     if rmflag:
         container.deleteContainer(containerId)
+
+
+# wrapper: start
+proc start*(container: var ContainerConf, containerId: string,
+            opts: seq[tuple[key: string, value: string]] = @[]) =
+    var name, mnt, ports: string = ""
+
+    # check options
+    if opts.len >= 1:
+        for opt in opts:
+            if opt[0] == "n" or opt[0] == "name":
+                name = opt[1]
+            elif opt[0] == "mount":
+                mnt = opt[1]
+            elif opt[0] == "p" or opt[0] == "portforward":
+                ports = opt[1]
+
+    container.startContainer(containerId, mnt, ports)
