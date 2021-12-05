@@ -90,6 +90,7 @@ proc setupContainerNW*(pid: int, hostaddr, vethaddr: string, containerId: string
         ethId      = containerId[6 .. ^1]
     execCommand(fmt"ip link add name xtal{ethId} type veth peer name eth0 netns {pid}")
     execCommand(fmt"nsenter -t {pid} -n ip address add {vethaddr} dev eth0")
+    execCommand(fmt"nsenter -t {pid} -n ip address add 127.0.0.1 dev lo")
     execCommand(fmt"ip link set dev xtal{ethId} master xtalbr")
     execCommand(fmt"nsenter -t {pid} -n ip link set up eth0")
     execCommand(fmt"ip link set up xtal{ethId}")
