@@ -12,6 +12,7 @@ proc sethostname*(name: cstring, namelen: cint): cint                           
 proc chdir*(path: cstring): cint                                                            {.importc, header: "unistd.h".}
 proc rmdir*(path: cstring): cint                                                            {.importc, header: "unistd.h".}
 proc execv*(pathname: cstring, argv: cstringArray): cint                                    {.importc, header: "unistd.h".}
+proc daemon*(nochdir: cint, noclose: cint): cint                                             {.importc, header: "unistd.h".}
 proc fork*(): cint                                                                          {.importc, header: "unistd.h".}
 proc getpid*(): cint                                                                        {.importc, header: "unistd.h".}
 proc getgid*(): cint                                                                        {.importc, header: "unistd.h".}
@@ -22,6 +23,8 @@ proc mount*(source, target, filesystem: cstring, mountflags: cint, data: cstring
 proc umount2*(target: cstring, flags: cint): cint                                           {.importc, header: "sys/mount.h".}
 proc malloc*(size: cint): pointer                                                           {.importc, header: "stdlib.h".}
 proc open*(pathname: cstring, flags: cint, mode: Mode): cint                                {.importc, header: "fcntl.h".}
+proc prctl*(option: culong, arg2: cint): cint                                               {.importc, header: "sys/prctl.h".}
+proc prctl*(option: culong): cint                                                           {.importc, header: "sys/prctl.h".}
 
 # defines
 let
@@ -41,6 +44,8 @@ let
     MS_REC*             {.importc, header: "sys/mount.h".}: cint
     MNT_DETACH*         {.importc, header: "sys/mount.h".}: cint
     O_CREAT*            {.importc, header: "fcntl.h".}: cint
+    PR_SET_KEEPCAPS*    {.importc, header: "sys/prctl.h".}: culong
+    PR_GET_KEEPCAPS*    {.importc, header: "sys/prctl.h".}: culong
 
 var
     errno* {.importc, header: "errno.h".}: cint
