@@ -82,6 +82,9 @@ $ sudo xtal [command] <[arg]>
   --mount=src:[src],dst:[dst]
           bind mount a directory on the local host to container.
           $ sudo xtal start --mount=src:$(pwd)/mydir,dst:/home 60e16be57bb5
+  
+  -p, --portforward=[host_port]:[container_port]
+          $ sudo xtal start --portforward=8080:80 60e16be57bb5
 ```
 
 ## Note
