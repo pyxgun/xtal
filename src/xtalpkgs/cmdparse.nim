@@ -65,6 +65,9 @@ proc checkCommandOpt(subcmd: int, key, value: string): bool =
             else            : return false
         of "r", "rm":
             return true
+        of "p", "portforward":
+            if value != ""  : return true
+            else            : return false
         else: return false
     of CREATE:
         case key
@@ -74,6 +77,9 @@ proc checkCommandOpt(subcmd: int, key, value: string): bool =
     of START:
         case key
         of "mount":
+            if value != ""  : return true
+            else            : return false
+        of "p", "portforward":
             if value != ""  : return true
             else            : return false
     else:
@@ -120,10 +126,7 @@ proc execXtal*(container: var ContainerConf, cmd: seq[string], opt: seq[tuple[ke
         else:
             discard container.createContainer(cmd[1])
     of START:
-        if opt.len == 1:
-            container.startContainer(cmd[1], opt[0][1])
-        else:
-            container.startContainer(cmd[1])
+        container.start(cmd[1], opt)
     of PULL:
         container.getContainerImage(cmd[1])
     of RM:
