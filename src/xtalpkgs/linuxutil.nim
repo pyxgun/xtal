@@ -12,10 +12,10 @@ proc execCommand*(cmd: string, sbinflags: bool = false) =
     if pid < 0: execError("fork failed.")
     elif pid == 0:
         if sbinflags:
-            if execv(fmt"/sbin/{cmdarr[0]}", allocCStringArray(cmdarr)) != 0:
+            if execv(cstring(fmt"/sbin/{cmdarr[0]}"), allocCStringArray(cmdarr)) != 0:
                 execError(fmt"command: {cmdarr[0]} failed.")
         else:
-            if execv(fmt"/bin/{cmdarr[0]}", allocCStringArray(cmdarr)) != 0:
+            if execv(cstring(fmt"/bin/{cmdarr[0]}"), allocCStringArray(cmdarr)) != 0:
                 execError(fmt"command: {cmdarr[0]} failed.")
     discard waitpid(pid, status, 0)
 
@@ -46,7 +46,7 @@ proc writeUidGidMappings*(pid: int, sysProcAttr: SysProcAttr) =
     gidf.writeIDMapping(sysProcAttr.gidMappings)
 
 proc setMemLimit*(pid: int) =
-    let memDir = fmt"/sys/fs/cgroup/memory/{pid}"
+    let memDir = cstring(fmt"/sys/fs/cgroup/memory/{pid}")
     if mkdir(memDir, 0o700) != 0:
         execError(fmt"create /sys/fs/cgroup/memory/{pid} failed.")
     # set memory limit
@@ -61,7 +61,7 @@ proc setMemLimit*(pid: int) =
         fd.close
 
 proc setCpuLimit*(pid: int) =
-    let cpuDir = fmt"/sys/fs/cgroup/cpu/{pid}"
+    let cpuDir = cstring(fmt"/sys/fs/cgroup/cpu/{pid}")
     if mkdir(cpuDir, 0o700) != 0:
         execError(fmt"create /sys/fs/cgroup/cpu/{pid} failed.")
     # set cpu limit
@@ -77,10 +77,10 @@ proc setCpuLimit*(pid: int) =
 
 proc claenCgroups*(pid: int) =
     # remove memory cgroup
-    if rmdir(fmt"/sys/fs/cgroup/memory/{pid}") != 0:
+    if rmdir(cstring(fmt"/sys/fs/cgroup/memory/{pid}")) != 0:
         execError("remove memory failed.")
     # remove cpu cgroup
-    if rmdir(fmt"/sys/fs/cgroup/cpu/{pid}") != 0:
+    if rmdir(cstring(fmt"/sys/fs/cgroup/cpu/{pid}")) != 0:
         execError("remove cpu failed.")
 
 # setup veth
@@ -147,39 +147,39 @@ proc parseExMount(mntopt: string): (string, string) =
 proc mountFs*(dirs: ContainerDirs) =
     block:
         # overlay
-        if mount("overlay", dirs.overlay, "overlay", 0,
-                    fmt"lowerdir={dirs.lowerdir},upperdir={dirs.upperdir},workdir={dirs.workdir}") != 0:
+        if mount("overlay", cstring(dirs.overlay), "overlay", 0,
+                    cstring(fmt"lowerdir={dirs.lowerdir},upperdir={dirs.upperdir},workdir={dirs.workdir}")) != 0:
             execError("mount overlay failed.")
         # /proc, /sys, /dev/pts, /dev/shm should be made available in each container's filesystem
         # /proc
         if not dirExists(fmt"{dirs.overlay}/proc"):
-            if mkdir(fmt"{dirs.overlay}/proc", 0o755) != 0:
+            if mkdir(cstring(fmt"{dirs.overlay}/proc"), 0o755) != 0:
                 execError("create /proc failed.")
-        if mount("proc", fmt"{dirs.overlay}/proc", "proc", MS_NOEXEC | MS_NODEV | MS_NOSUID, "") != 0:
+        if mount("proc", cstring(fmt"{dirs.overlay}/proc"), "proc", MS_NOEXEC | MS_NODEV | MS_NOSUID, "") != 0:
             execError("mount proc failed.")
         # /sys
         if not dirExists(fmt"{dirs.overlay}/sys"):
-            if mkdir(fmt"{dirs.overlay}/sys", 0o755) != 0:
+            if mkdir(cstring(fmt"{dirs.overlay}/sys"), 0o755) != 0:
                 execError("create /sys failed.")
-        if mount("sysfs", fmt"{dirs.overlay}/sys", "sysfs", MS_NOEXEC | MS_NODEV | MS_NOSUID | MS_RDONLY, "") != 0:
+        if mount("sysfs", cstring(fmt"{dirs.overlay}/sys"), "sysfs", MS_NOEXEC | MS_NODEV | MS_NOSUID | MS_RDONLY, "") != 0:
             execError("mount sysfs failed.")
         # /dev
         if not dirExists(fmt"{dirs.overlay}/dev"):
-            if mkdir(fmt"{dirs.overlay}/dev", 0o755) != 0:
+            if mkdir(cstring(fmt"{dirs.overlay}/dev"), 0o755) != 0:
                 execError("create /dev failed.")
-        if mount("tmpfs", fmt"{dirs.overlay}/dev", "tmpfs", MS_NOSUID, "size=65536k,mode=755") != 0:
+        if mount("tmpfs", cstring(fmt"{dirs.overlay}/dev"), "tmpfs", MS_NOSUID, "size=65536k,mode=755") != 0:
             execError("mount /dev failed.")
         # /dev/pts
         if not dirExists(fmt"{dirs.overlay}/dev/pts"):
-            if mkdir(fmt"{dirs.overlay}/dev/pts", 0o755) != 0:
+            if mkdir(cstring(fmt"{dirs.overlay}/dev/pts"), 0o755) != 0:
                 execError("create /dev/pts failed.")
-        if mount("devpts", fmt"{dirs.overlay}/dev/pts", "devpts", MS_NOEXEC | MS_NOSUID, "gid=5,mode=620,ptmxmode=666") != 0:
+        if mount("devpts", cstring(fmt"{dirs.overlay}/dev/pts"), "devpts", MS_NOEXEC | MS_NOSUID, "gid=5,mode=620,ptmxmode=666") != 0:
             execError("mount devpts failed.")
         # /dev/shm
         if not dirExists(fmt"{dirs.overlay}/dev/shm"):
-            if mkdir(fmt"{dirs.overlay}/dev/shm", 0o755) != 0:
+            if mkdir(cstring(fmt"{dirs.overlay}/dev/shm"), 0o755) != 0:
                 execError("create /dev/shm failed.")
-        if mount("shm", fmt"{dirs.overlay}/dev/shm", "tmpfs", MS_NOEXEC | MS_NODEV | MS_NOSUID, "size=65536k") != 0:
+        if mount("shm", cstring(fmt"{dirs.overlay}/dev/shm"), "tmpfs", MS_NOEXEC | MS_NODEV | MS_NOSUID, "size=65536k") != 0:
             execError("mount shm failed.")
         # resolv.conf
         if not fileExists(fmt"{dirs.overlay}/etc/resolv.conf"):
@@ -192,18 +192,18 @@ proc mountFs*(dirs: ContainerDirs) =
                 mntinfo = parseExMount(dirs.exmount)
                 mntsrc  = mntinfo[0]
                 mntdst  = mntinfo[1]
-            if mount(fmt"{mntsrc}", fmt"{dirs.overlay}{mntdst}", "", MS_BIND, "") != 0:
+            if mount(cstring(fmt"{mntsrc}"), cstring(fmt"{dirs.overlay}{mntdst}"), "", MS_BIND, "") != 0:
                 execError("mount option failed.")
 
 # wrapper for pivot_root
 proc pivotRoot*(dirs: ContainerDirs) =
-    if chdir(fmt"{dirs.iddir}") != 0:
+    if chdir(cstring(fmt"{dirs.iddir}")) != 0:
         execError("change directory failed.")
-    if mount("merged", fmt"{dirs.overlay}", "", MS_BIND | MS_REC, "") != 0:
+    if mount("merged", cstring(fmt"{dirs.overlay}"), "", MS_BIND | MS_REC, "") != 0:
         execError("mount merged failed.")
-    if mkdir(fmt"{dirs.overlay}/put_old", 0o700) != 0:
+    if mkdir(cstring(fmt"{dirs.overlay}/put_old"), 0o700) != 0:
         execError("create put_old faield.")
-    if syscall(SYS_pivot_root, "merged", fmt"{dirs.overlay}/put_old") != 0:
+    if syscall(SYS_pivot_root, "merged", cstring(fmt"{dirs.overlay}/put_old")) != 0:
         execError("pivot_root failed.")
     if chdir("/") != 0:
         execError("change / failed.")

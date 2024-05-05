@@ -70,7 +70,7 @@ proc checkDir(setting: XtalSettings) =
                         "ip_nwaddr": "10.157.0.0/24",
                         "ip_hostaddr": "10.157.0.1/24",
                         "ip_vethaddr": "10.157.0.10/24",
-                        "host_nwif": "enp7s0"
+                        "host_nwif": "eth0"
                     }
                 }
             fd.write(confJson)

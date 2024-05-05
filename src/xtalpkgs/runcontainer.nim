@@ -9,7 +9,7 @@ import
 # execContainer will be executed on new process
 proc procOnContainer(container: ContainerConf) =
     # set hostname
-    if sethostname(container.env.hostname, cast[cint](container.env.hostname.len)) != 0:
+    if sethostname(cstring(container.env.hostname), cast[cint](container.env.hostname.len)) != 0:
         execError("set hostname failed.")
     # mount filesystems
     mountFs(container.dirs)
@@ -67,7 +67,7 @@ proc stateUpdate(configPath: string, pid: int, status: string) =
 proc cmdSyntaxCheck*(cmdArray: var cstringArray) =
     let cmd: string = $cmdArray[0]
     if cmd.find("/usr/bin/") == -1 and cmd.find("/usr/sbin/") == -1 and cmd.find("/bin/") == -1:
-        cmdArray[0] = fmt"/bin/{cmdArray[0]}"
+        cmdArray[0] = cstring(fmt"/bin/{cmdArray[0]}")
 
 proc containerExists(containerDir: string): bool =
     if dirExists(containerDir):
