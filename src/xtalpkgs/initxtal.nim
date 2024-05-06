@@ -1,5 +1,5 @@
 import 
-    os, strutils, json
+    os, osproc, strutils, json, strformat
 
 import
     types, libc
@@ -12,6 +12,10 @@ type XtalSettings* = object
     layerDir*       : string
     imageDir*       : string
     blobsDir*       : string
+
+proc getMainNicName(): string =
+    let nic_name = execProcess("ip -o -4 route show to default | awk '{print $5}'")
+    result = nic_name[0 .. ^2]
 
 proc initDir(): XtalSettings =
     let 
@@ -61,6 +65,7 @@ proc checkDir(setting: XtalSettings) =
     # TODO: get host network interface name
     # xtal config file
     let configFile = setting.baseDir & "/xtalconf.json"
+    let host_nwif  = getMainNicName()
     if not fileExists(configFile):
         block:
             let 
@@ -70,7 +75,7 @@ proc checkDir(setting: XtalSettings) =
                         "ip_nwaddr": "10.157.0.0/24",
                         "ip_hostaddr": "10.157.0.1/24",
                         "ip_vethaddr": "10.157.0.10/24",
-                        "host_nwif": "eth0"
+                        "host_nwif": fmt"{host_nwif}"
                     }
                 }
             fd.write(confJson)
